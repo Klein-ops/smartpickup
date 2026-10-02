@@ -29,6 +29,6 @@
   "option.smartpickup.blacklist": "Blacklist Enabled",
   "option.smartpickup.toast": "Pickup Toast",
   "option.smartpickup.toast.blacklistRejected": "Show Rejected Toast",
-  "message.smartpickup.picked": "Picked up: %s x%s",
+  "message.smartpickup.picked": "%s x%s",
   "message.smartpickup.blacklist_rejected": "Refused: %s"
 }

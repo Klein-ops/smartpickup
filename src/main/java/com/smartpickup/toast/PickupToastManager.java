@@ -12,9 +12,10 @@ import com.smartpickup.Config;
 /**
  * Client-side manager for the pickup toast (Feature 4).
  *
- * <p>Shows a short action-bar message above the hotbar when items are picked
- * up. Consecutive pickups of the same item within the configured merge window
- * are summed into one message instead of spamming the action bar.
+ * <p>Feeds a stacked HUD list ({@link PickupToastRenderer}) instead of the
+ * vanilla action-bar message, so multiple pickups can be shown at once.
+ * Consecutive pickups of the same item within the configured merge window
+ * are summed into one entry instead of spamming the list.
  */
 public final class PickupToastManager {
 
@@ -41,20 +42,25 @@ public final class PickupToastManager {
         }
 
         if (count == 0) {
-            // Blacklist rejection message.
+            // Blacklist rejection message. Use updateLatest so repeated
+            // rejections of the same item (server-side cooldown aside) merge
+            // into one entry instead of stacking.
             Component name = itemDisplayName(itemId);
             if (name != null) {
-                mc.player.displayClientMessage(
-                        Component.translatable("message.smartpickup.blacklist_rejected", name), true);
+                PickupToastRenderer.updateLatest(
+                        itemId,
+                        Component.translatable("message.smartpickup.blacklist_rejected", name));
             }
             lastItemId = null; // don't merge rejections with pickups
             return;
         }
 
-        // Merge consecutive pickups of the same item within the merge window.
+        // Merge consecutive pickups of the same item within the merge window:
+        // update the existing entry instead of stacking a new one.
         long now = mc.level == null ? 0 : mc.level.getGameTime();
         double windowTicks = Config.toastMergeWindow * 20.0;
-        if (itemId.equals(lastItemId) && now - lastShownTick <= windowTicks) {
+        boolean merging = itemId.equals(lastItemId) && now - lastShownTick <= windowTicks;
+        if (merging) {
             lastCount += count;
         } else {
             lastItemId = itemId;
@@ -67,7 +73,11 @@ public final class PickupToastManager {
             return;
         }
         MutableComponent msg = Component.translatable("message.smartpickup.picked", name, lastCount);
-        mc.player.displayClientMessage(msg, true);
+        if (merging) {
+            PickupToastRenderer.updateLatest(itemId, msg);
+        } else {
+            PickupToastRenderer.push(itemId, msg);
+        }
     }
 
     private static Component itemDisplayName(String itemId) {

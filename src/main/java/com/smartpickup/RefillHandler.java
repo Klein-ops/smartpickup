@@ -39,6 +39,9 @@ public final class RefillHandler {
     /** Previous-tick snapshot of each player's held stacks, used to detect "used up". */
     private static final Map<Player, HandSnapshot> LAST = new IdentityHashMap<>();
 
+    /** Whether each player had a GUI open on the previous tick (used to reset the snapshot when a GUI closes). */
+    private static final Map<Player, Boolean> GUI_WAS_OPEN = new IdentityHashMap<>();
+
     /**
      * Called every server tick for each player.
      */
@@ -53,10 +56,20 @@ public final class RefillHandler {
         // "nothing open" from the player's own inventory screen (both use InventoryMenu),
         // so the client reports its screen state. While any GUI is open the player may be
         // rearranging items, which must not be mistaken for the held item being used up.
-        if (!(player.containerMenu instanceof InventoryMenu)) {
-            return;
+        boolean guiOpenNow = ScreenStateTracker.isOpen(player.getUUID())
+                || !(player.containerMenu instanceof InventoryMenu);
+        Boolean prevGui = GUI_WAS_OPEN.put(player, guiOpenNow);
+        boolean guiJustClosed = Boolean.TRUE.equals(prevGui) && !guiOpenNow;
+
+        if (guiOpenNow) {
+            return; // GUI open: never refill, and leave the held-stack snapshot untouched.
         }
-        if (ScreenStateTracker.isOpen(player.getUUID())) {
+        if (guiJustClosed) {
+            // The player just closed a GUI. While it was open they may have rearranged
+            // items (e.g. moved the held stack from the hotbar into the inventory).
+            // Drop the stale snapshot so the next tick establishes a fresh baseline
+            // instead of mistaking that rearrangement for "the held item was used up".
+            LAST.remove(player);
             return;
         }
 
@@ -101,15 +114,26 @@ public final class RefillHandler {
         if (Config.refillSkipCreative && player.getAbilities().instabuild) {
             return;
         }
-        if (!(player.containerMenu instanceof InventoryMenu)) {
-            return;
-        }
-        if (ScreenStateTracker.isOpen(player.getUUID())) {
+        // Same GUI guard as tick(): never refill while any GUI is open, and skip the
+        // tick right after a GUI closes (the player may still be "in" the transition).
+        if (guiOpen(player)) {
             return;
         }
         Inventory inv = player.getInventory();
         int slot = hand == InteractionHand.MAIN_HAND ? inv.selected : Inventory.SLOT_OFFHAND;
         tryRefill(inv, slot, broken);
+    }
+
+    /** True while the player has a GUI open (screen state or non-inventory menu). */
+    private static boolean guiOpen(Player player) {
+        return ScreenStateTracker.isOpen(player.getUUID())
+                || !(player.containerMenu instanceof InventoryMenu);
+    }
+
+    /** Called on player logout to drop per-player state. */
+    public static void onLogout(Player player) {
+        LAST.remove(player);
+        GUI_WAS_OPEN.remove(player);
     }
 
     /**

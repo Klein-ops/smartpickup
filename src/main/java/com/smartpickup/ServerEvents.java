@@ -23,6 +23,17 @@ import net.neoforged.neoforge.network.PacketDistributor;
  */
 public final class ServerEvents {
 
+    /**
+     * Cooldown (ticks) before the same item entity triggers another
+     * "blacklist rejected" toast. Prevents spam: the pickup-pre event fires
+     * every tick while the player stands on a refused item, but the player
+     * should only see one toast per entity.
+     */
+    private static final long REJECT_TOAST_COOLDOWN_TICKS = 20L;
+
+    /** Last tick a reject toast was sent, keyed by item-entity UUID. */
+    private static final java.util.Map<java.util.UUID, Long> REJECT_TOAST_LAST_SENT = new java.util.HashMap<>();
+
     public static void register() {
         NeoForge.EVENT_BUS.register(ServerEvents.class);
     }
@@ -53,9 +64,17 @@ public final class ServerEvents {
         // Feature 3: blacklist -> refuse pickup entirely.
         if (Config.blacklistEnabled && Config.isBlacklisted(itemId)) {
             event.setCanPickup(TriState.FALSE);
+            // The Pre event fires every tick while the player stands on the
+            // refused item; only send one toast per item entity per second.
             if (Config.toastEnabled && Config.toastBlacklistRejected) {
-                PacketDistributor.sendToPlayer(player,
-                        new PickupToastPayload(itemId, 0)); // 0 = rejected marker
+                java.util.UUID entityId = entity.getUUID();
+                long gameTime = player.serverLevel().getGameTime();
+                Long lastSent = REJECT_TOAST_LAST_SENT.get(entityId);
+                if (lastSent == null || gameTime - lastSent >= REJECT_TOAST_COOLDOWN_TICKS) {
+                    REJECT_TOAST_LAST_SENT.put(entityId, gameTime);
+                    PacketDistributor.sendToPlayer(player,
+                            new PickupToastPayload(itemId, 0)); // 0 = rejected marker
+                }
             }
             return;
         }
@@ -119,5 +138,7 @@ public final class ServerEvents {
     @SubscribeEvent
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         ScreenStateTracker.clear(event.getEntity().getUUID());
+        RefillHandler.onLogout(event.getEntity());
+        REJECT_TOAST_LAST_SENT.clear();
     }
 }

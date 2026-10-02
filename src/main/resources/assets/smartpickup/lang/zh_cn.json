@@ -29,6 +29,6 @@
   "option.smartpickup.blacklist": "黑名单功能",
   "option.smartpickup.toast": "拾取提示",
   "option.smartpickup.toast.blacklistRejected": "拒绝时也提示",
-  "message.smartpickup.picked": "捡到: %s x%s",
+  "message.smartpickup.picked": "%s x%s",
   "message.smartpickup.blacklist_rejected": "已拒绝: %s"
 }
