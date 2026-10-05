@@ -61,12 +61,14 @@ public final class PickupToastRenderer {
         final Component text;
         final long addedTick;
         final int level; // 0 = newest ... 3 = oldest
+        final int color; // RGB text color matching the item's rarity
 
-        Entry(String key, Component text, long addedTick, int level) {
+        Entry(String key, Component text, long addedTick, int level, int color) {
             this.key = key;
             this.text = text;
             this.addedTick = addedTick;
             this.level = level;
+            this.color = color;
         }
     }
 
@@ -82,18 +84,19 @@ public final class PickupToastRenderer {
      * @param key  stable identity of the entry, e.g. the item id; used to update
      *             an existing entry instead of stacking a duplicate
      * @param text rendered text
+     * @param color RGB text color matching the item's rarity
      */
-    public static void push(String key, Component text) {
+    public static void push(String key, Component text, int color) {
         Minecraft mc = Minecraft.getInstance();
         long nowTick = mc.level == null ? 0 : mc.level.getGameTime();
 
         List<Entry> next = new ArrayList<>(MAX_ENTRIES);
         // Newest entry goes first (level 0 = full size/opacity).
-        next.add(new Entry(key, text, nowTick, 0));
+        next.add(new Entry(key, text, nowTick, 0, color));
         // Shift previous entries up one level; keep at most MAX_ENTRIES.
         for (int i = 0; i < ENTRIES.size() && next.size() < MAX_ENTRIES; i++) {
             Entry e = ENTRIES.get(i);
-            next.add(new Entry(e.key, e.text, e.addedTick, next.size()));
+            next.add(new Entry(e.key, e.text, e.addedTick, next.size(), e.color));
         }
         ENTRIES.clear();
         ENTRIES.addAll(next);
@@ -102,15 +105,15 @@ public final class PickupToastRenderer {
     /**
      * If the newest entry matches {@code key}, refreshes its text and lifetime
      * (used to merge consecutive pickups of the same item). Otherwise behaves
-     * like {@link #push(String, Component)}.
+     * like {@link #push(String, Component, int)}.
      */
-    public static void updateLatest(String key, Component text) {
+    public static void updateLatest(String key, Component text, int color) {
         Minecraft mc = Minecraft.getInstance();
         long nowTick = mc.level == null ? 0 : mc.level.getGameTime();
         if (!ENTRIES.isEmpty() && ENTRIES.get(0).key.equals(key)) {
-            ENTRIES.set(0, new Entry(key, text, nowTick, 0));
+            ENTRIES.set(0, new Entry(key, text, nowTick, 0, color));
         } else {
-            push(key, text);
+            push(key, text, color);
         }
     }
 
@@ -181,19 +184,20 @@ public final class PickupToastRenderer {
             // to its predecessor and the stack stays compact.
             float yOffset = i * LINE_GAP * scale;
 
-            // Draw with the level-based scale.
-            drawScaled(gui, font, e.text, scale, colorAlpha, baseY - yOffset);
+            // Draw with the level-based scale and the item's rarity color.
+            drawScaled(gui, font, e.text, scale, colorAlpha, e.color, baseY - yOffset);
         }
     }
 
     private static void drawScaled(GuiGraphics gui, Font font, Component text,
-                                   float scale, int alpha, float centerY) {
+                                   float scale, int alpha, int rgb, float centerY) {
         int screenWidth = gui.guiWidth();
         float textWidth = font.width(text) * scale;
         float x = (screenWidth - textWidth) / 2.0F;
         float y = centerY - font.lineHeight * scale / 2.0F;
 
-        int color = (alpha << 24) | 0xFFFFFF;
+        // Combine the alpha (fade + level dimming) with the rarity color (RGB).
+        int color = (alpha << 24) | (rgb & 0xFFFFFF);
         gui.pose().pushPose();
         gui.pose().translate(x, y, 0.0F);
         gui.pose().scale(scale, scale, 1.0F);

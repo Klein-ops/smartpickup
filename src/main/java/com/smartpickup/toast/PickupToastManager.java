@@ -31,8 +31,10 @@ public final class PickupToastManager {
      *
      * @param itemId registry id of the item, e.g. "minecraft:dirt"
      * @param count  number picked up; 0 means "blacklisted, refused"
+     * @param color  text color (RGB) matching the item's rarity, computed
+     *               server-side from the full ItemStack
      */
-    public static void onPickup(String itemId, int count) {
+    public static void onPickup(String itemId, int count, int color) {
         if (!Config.toastEnabled) {
             return;
         }
@@ -49,7 +51,8 @@ public final class PickupToastManager {
             if (name != null) {
                 PickupToastRenderer.updateLatest(
                         itemId,
-                        Component.translatable("message.smartpickup.blacklist_rejected", name));
+                        Component.translatable("message.smartpickup.blacklist_rejected", name),
+                        color);
             }
             lastItemId = null; // don't merge rejections with pickups
             return;
@@ -74,9 +77,9 @@ public final class PickupToastManager {
         }
         MutableComponent msg = Component.translatable("message.smartpickup.picked", name, lastCount);
         if (merging) {
-            PickupToastRenderer.updateLatest(itemId, msg);
+            PickupToastRenderer.updateLatest(itemId, msg, color);
         } else {
-            PickupToastRenderer.push(itemId, msg);
+            PickupToastRenderer.push(itemId, msg, color);
         }
     }
 

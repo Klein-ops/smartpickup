@@ -3,6 +3,7 @@ package com.smartpickup;
 import com.smartpickup.network.PickupToastPayload;
 
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.ChatFormatting;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -73,7 +74,7 @@ public final class ServerEvents {
                 if (lastSent == null || gameTime - lastSent >= REJECT_TOAST_COOLDOWN_TICKS) {
                     REJECT_TOAST_LAST_SENT.put(entityId, gameTime);
                     PacketDistributor.sendToPlayer(player,
-                            new PickupToastPayload(itemId, 0)); // 0 = rejected marker
+                            new PickupToastPayload(itemId, 0, rarityColor(stack))); // 0 = rejected marker
                 }
             }
             return;
@@ -105,7 +106,7 @@ public final class ServerEvents {
                 PickupHandler.playPickupSound(player);
                 if (Config.toastEnabled) {
                     PacketDistributor.sendToPlayer(player,
-                            new PickupToastPayload(itemId, picked));
+                            new PickupToastPayload(itemId, picked, rarityColor(stack)));
                 }
             }
         }
@@ -140,5 +141,17 @@ public final class ServerEvents {
         ScreenStateTracker.clear(event.getEntity().getUUID());
         RefillHandler.onLogout(event.getEntity());
         REJECT_TOAST_LAST_SENT.clear();
+    }
+
+    /**
+     * Computes the text color (0xRRGGBB) for an item based on its rarity,
+     * exactly like the vanilla item name (white/yellow/aqua/light-purple).
+     * Uses the full ItemStack so enchantments boost the rarity the same way
+     * vanilla does (enchanted tool -> blue, enchanted golden apple -> purple).
+     */
+    private static int rarityColor(ItemStack stack) {
+        ChatFormatting color = stack.getRarity().color();
+        Integer rgb = color.getColor();
+        return rgb == null ? 0xFFFFFF : rgb;
     }
 }
