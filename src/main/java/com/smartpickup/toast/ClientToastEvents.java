@@ -17,6 +17,6 @@ public final class ClientToastEvents {
      * safe to touch the Minecraft instance directly.
      */
     public static void handlePickupToast(PickupToastPayload payload) {
-        PickupToastManager.onPickup(payload.itemId(), payload.count(), payload.color());
+        PickupToastManager.onPickup(payload.itemId(), payload.count(), payload.color(), payload.name());
     }
 }

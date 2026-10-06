@@ -1,11 +1,8 @@
 package com.smartpickup.toast;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 
 import com.smartpickup.Config;
 
@@ -29,12 +26,15 @@ public final class PickupToastManager {
     /**
      * Called when a pickup toast payload arrives from the server.
      *
-     * @param itemId registry id of the item, e.g. "minecraft:dirt"
+     * @param itemId registry id of the item, e.g. "minecraft:dirt"; used only
+     *               as the merge key for consecutive pickups
      * @param count  number picked up; 0 means "blacklisted, refused"
      * @param color  text color (RGB) matching the item's rarity, computed
      *               server-side from the full ItemStack
+     * @param name   the item's display name (includes custom names given on
+     *               an anvil), computed server-side from the full ItemStack
      */
-    public static void onPickup(String itemId, int count, int color) {
+    public static void onPickup(String itemId, int count, int color, Component name) {
         if (!Config.toastEnabled) {
             return;
         }
@@ -47,13 +47,10 @@ public final class PickupToastManager {
             // Blacklist rejection message. Use updateLatest so repeated
             // rejections of the same item (server-side cooldown aside) merge
             // into one entry instead of stacking.
-            Component name = itemDisplayName(itemId);
-            if (name != null) {
-                PickupToastRenderer.updateLatest(
-                        itemId,
-                        Component.translatable("message.smartpickup.blacklist_rejected", name),
-                        color);
-            }
+            PickupToastRenderer.updateLatest(
+                    itemId,
+                    Component.translatable("message.smartpickup.blacklist_rejected", name),
+                    color);
             lastItemId = null; // don't merge rejections with pickups
             return;
         }
@@ -71,27 +68,11 @@ public final class PickupToastManager {
         }
         lastShownTick = now;
 
-        Component name = itemDisplayName(itemId);
-        if (name == null) {
-            return;
-        }
         MutableComponent msg = Component.translatable("message.smartpickup.picked", name, lastCount);
         if (merging) {
             PickupToastRenderer.updateLatest(itemId, msg, color);
         } else {
             PickupToastRenderer.push(itemId, msg, color);
         }
-    }
-
-    private static Component itemDisplayName(String itemId) {
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null) {
-            return null;
-        }
-        Item item = BuiltInRegistries.ITEM.get(id);
-        if (item == BuiltInRegistries.ITEM.get(ResourceLocation.withDefaultNamespace("air"))) {
-            return null;
-        }
-        return item.getDescription().copy();
     }
 }

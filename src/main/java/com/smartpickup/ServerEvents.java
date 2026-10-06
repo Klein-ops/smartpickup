@@ -74,7 +74,7 @@ public final class ServerEvents {
                 if (lastSent == null || gameTime - lastSent >= REJECT_TOAST_COOLDOWN_TICKS) {
                     REJECT_TOAST_LAST_SENT.put(entityId, gameTime);
                     PacketDistributor.sendToPlayer(player,
-                            new PickupToastPayload(itemId, 0, rarityColor(stack))); // 0 = rejected marker
+                            new PickupToastPayload(itemId, 0, rarityColor(stack), stack.getHoverName())); // 0 = rejected marker
                 }
             }
             return;
@@ -106,7 +106,7 @@ public final class ServerEvents {
                 PickupHandler.playPickupSound(player);
                 if (Config.toastEnabled) {
                     PacketDistributor.sendToPlayer(player,
-                            new PickupToastPayload(itemId, picked, rarityColor(stack)));
+                            new PickupToastPayload(itemId, picked, rarityColor(stack), stack.getHoverName()));
                 }
             }
         }
